@@ -5,5 +5,8 @@ description = "TokenHub exchange server"
 requires-python = ">=3.11"
 dependencies = ["aiohttp>=3.11.0"]
 
+[tool.setuptools.packages.find]
+include = ["server*"]
+
 [project.scripts]
 tokenhub-server = "server.main:main"

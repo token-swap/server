@@ -13,6 +13,8 @@ WebSocket-based LLM token exchange server. Users offer tokens from one AI provid
 ```
 .
 ├── pyproject.toml        # Package metadata, sole dependency: aiohttp
+├── Dockerfile            # Multi-stage build, runs as non-root
+├── .dockerignore         # Keeps build context clean
 └── server/               # Single Python package
     ├── __init__.py        # Empty package marker
     ├── main.py            # aiohttp app, WS handler, routes, entrypoint
@@ -73,11 +75,15 @@ python -m server.main
 
 # With custom host/port
 HOST=127.0.0.1 PORT=3000 tokenhub-server
+
+# Docker
+docker build -t tokenhub-server .
+docker run -p 8080:8080 tokenhub-server
 ```
 
 ## NOTES
 
-- No tests, CI, or Dockerfile exist yet
+- No tests or CI exist yet
 - Single dependency: `aiohttp>=3.11.0`
 - Matching is strictly complementary: A wants B's model AND B wants A's model
 - `temp_key` (secrets.token_urlsafe) is generated per pairing for peer auth — not yet consumed by any proxy
