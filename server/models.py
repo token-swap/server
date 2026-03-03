@@ -42,12 +42,18 @@ class Pairing:
 
 
 def paired_message(
-    offer: Offer, peer: Offer, temp_key: str, tokens_granted: int, tokens_to_serve: int
+    offer: Offer,
+    peer: Offer,
+    temp_key: str,
+    proxy_key: str,
+    tokens_granted: int,
+    tokens_to_serve: int,
 ) -> dict:
     return {
         "type": "paired",
         "offer_id": offer.offer_id,
         "temp_key": temp_key,
+        "proxy_key": proxy_key,
         "peer_url": peer.proxy_url,
         "peer_provider": peer.provider,
         "peer_model": peer.model,

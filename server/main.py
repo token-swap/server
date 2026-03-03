@@ -58,7 +58,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                                 paired_message(
                                     a,
                                     b,
-                                    pairing.temp_key_b,
+                                    temp_key=pairing.temp_key_b,
+                                    proxy_key=pairing.temp_key_a,
                                     tokens_granted=pairing.tokens_b_serves,
                                     tokens_to_serve=pairing.tokens_a_serves,
                                 )
@@ -67,7 +68,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                                 paired_message(
                                     b,
                                     a,
-                                    pairing.temp_key_a,
+                                    temp_key=pairing.temp_key_a,
+                                    proxy_key=pairing.temp_key_b,
                                     tokens_granted=pairing.tokens_a_serves,
                                     tokens_to_serve=pairing.tokens_b_serves,
                                 )
