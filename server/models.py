@@ -68,3 +68,7 @@ def ack_message(offer_id: str) -> dict:
 
 def error_message(text: str) -> dict:
     return {"type": "error", "message": text}
+
+
+def usage_update_message(tokens: int) -> dict:
+    return {"type": "usage_update", "tokens": tokens}
