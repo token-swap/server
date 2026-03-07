@@ -4,7 +4,7 @@ A Python aiohttp WebSocket server that coordinates token exchanges between LLM A
 
 ## Overview
 
-The server matches clients offering and requesting specific model access. It calculates exchange rates based on real-world input and output pricing for 20+ models from OpenAI, Anthropic, and Gemini.
+The server matches clients offering and requesting specific model access. It calculates exchange rates based on real-world input and output pricing for 20 models from OpenAI, Anthropic, and Gemini.
 
 ### Features
 - Peer matching based on model availability and demand.
