@@ -27,19 +27,80 @@ PRICING: dict[str, tuple[float, float]] = {
     "gemini-2.0-flash": (0.10, 0.40),
 }
 
+MODEL_ALIASES: dict[str, str] = {
+    "gpt-5 mini": "gpt-5-mini",
+    "gpt-4.1 mini": "gpt-4.1-mini",
+    "gpt-4.1 nano": "gpt-4.1-nano",
+    "claude sonnet 4.6": "claude-sonnet-4-6",
+    "claude sonnet 4.5": "claude-sonnet-4-5",
+    "claude opus 4.6": "claude-opus-4-6",
+    "claude opus 4.5": "claude-opus-4-5",
+    "claude haiku 4.5": "claude-haiku-4-5",
+    "gemini 2.5 pro": "gemini-2.5-pro",
+    "gemini 2.5 flash": "gemini-2.5-flash",
+    "gemini 2.5 flash lite": "gemini-2.5-flash-lite",
+    "gemini 2.0 flash": "gemini-2.0-flash",
+}
+
+FAMILY_FALLBACK: dict[str, str] = {
+    "gpt-": "gpt-4.1",
+    "o": "o4-mini",
+    "claude": "claude-sonnet-4-6",
+    "gemini": "gemini-2.5-flash",
+}
+
+# Precomputed once at module load: PRICING keys sorted by length descending,
+# used by _resolve_model() for prefix/substring matching.
+_PRICING_KEYS_BY_LENGTH: list[str] = sorted(PRICING.keys(), key=len, reverse=True)
+
+
+def _normalize_model(model: str) -> str:
+    return model.strip().lower().replace("_", "-")
+
+
+def _resolve_model(model: str) -> str | None:
+    normalized = _normalize_model(model)
+
+    if normalized in PRICING:
+        return normalized
+
+    if normalized in MODEL_ALIASES:
+        alias = MODEL_ALIASES[normalized]
+        if alias in PRICING:
+            return alias
+
+    for key in _PRICING_KEYS_BY_LENGTH:
+        if normalized == key or normalized.startswith(f"{key}-"):
+            return key
+
+    for prefix, fallback in FAMILY_FALLBACK.items():
+        if normalized.startswith(prefix):
+            return fallback
+
+    return None
+
 
 def avg_price(model: str) -> float:
-    inp, out = PRICING[model]
+    resolved = _resolve_model(model)
+    if resolved is None:
+        raise KeyError(model)
+    inp, out = PRICING[resolved]
     return (inp + out) / 2
 
 
 def input_price(model: str) -> float:
-    inp, _ = PRICING[model]
+    resolved = _resolve_model(model)
+    if resolved is None:
+        raise KeyError(model)
+    inp, _ = PRICING[resolved]
     return inp
 
 
 def output_price(model: str) -> float:
-    _, out = PRICING[model]
+    resolved = _resolve_model(model)
+    if resolved is None:
+        raise KeyError(model)
+    _, out = PRICING[resolved]
     return out
 
 
@@ -68,4 +129,4 @@ def calculate_output_exchange(
 
 
 def is_known_model(model: str) -> bool:
-    return model in PRICING
+    return _resolve_model(model) is not None
