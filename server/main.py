@@ -26,6 +26,11 @@ async def health_handler(request: web.Request) -> web.Response:
 async def provider_models_handler(request: web.Request) -> web.Response:
     provider = request.query.get("provider", "")
     if provider:
+        if provider not in SUPPORTED_MODELS_BY_PROVIDER:
+            return web.json_response(
+                {"error": f"Unknown provider: {provider}"},
+                status=404,
+            )
         return web.json_response(
             {
                 "provider": provider,
