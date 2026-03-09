@@ -5,6 +5,10 @@ description = "TokenHub exchange server"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp>=3.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
     "pytest>=9.0.2",
 ]
 
