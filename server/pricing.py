@@ -155,9 +155,5 @@ def calculate_output_exchange(
     )
 
 
-def is_known_model(model: str) -> bool:
-    return _resolve_model(model) is not None
-
-
 def get_supported_provider_models(provider: str) -> list[str]:
     return list(SUPPORTED_MODELS_BY_PROVIDER.get(provider, []))
