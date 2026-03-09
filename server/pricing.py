@@ -1,85 +1,109 @@
 import math
 
-# Per 1M tokens: (input_price_usd, output_price_usd)
+# Per 1M tokens: (input_price_usd, output_price_usd). TODO: update pricing for all supported models
 PRICING: dict[str, tuple[float, float]] = {
     # OpenAI
+    "gpt-5.4": (2.50, 15.00),
+    "gpt-5": (1.25, 10.00),
+    "gpt-5.1": (1.25, 10.00),
+    "gpt-5.1-codex": (1.25, 10.00),
+    "gpt-5.1-codex-max": (1.25, 10.00),
+    "gpt-5.1-codex-mini": (0.25, 2.00),
     "gpt-5.2": (1.75, 14.00),
     "gpt-5.2-pro": (21.00, 168.00),
+    "gpt-5.2-codex": (1.75, 14.00),
     "gpt-5.3-codex": (1.75, 14.00),
     "gpt-5-mini": (0.25, 2.00),
     "gpt-4.1": (2.00, 8.00),
     "gpt-4.1-mini": (0.40, 1.60),
     "gpt-4.1-nano": (0.10, 0.40),
+    "gpt-4o": (2.50, 10.00),
     "o3": (2.00, 8.00),
     "o4-mini": (1.10, 4.40),
     # Anthropic
+    "claude-opus-4.6": (5.00, 25.00),
+    "claude-sonnet-4.6": (3.00, 15.00),
+    "claude-haiku-4.5": (1.00, 5.00),
+    "claude-sonnet-4": (3.00, 15.00),
+    "claude-sonnet-4.5": (3.00, 15.00),
+    "claude-opus-4.5": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-sonnet-4-5": (3.00, 15.00),
     "claude-opus-4-5": (5.00, 25.00),
     # Gemini
+    "gemini-3-pro-preview": (2.00, 12.00),
     "gemini-3.1-pro-preview": (2.00, 12.00),
     "gemini-3-flash-preview": (0.50, 3.00),
     "gemini-2.5-pro": (1.25, 10.00),
     "gemini-2.5-flash": (0.30, 2.50),
     "gemini-2.5-flash-lite": (0.10, 0.40),
     "gemini-2.0-flash": (0.10, 0.40),
+    "grok-code-fast-1": (0.20, 1.50),
 }
 
-MODEL_ALIASES: dict[str, str] = {
-    "gpt-5 mini": "gpt-5-mini",
-    "gpt-4.1 mini": "gpt-4.1-mini",
-    "gpt-4.1 nano": "gpt-4.1-nano",
-    "claude sonnet 4.6": "claude-sonnet-4-6",
-    "claude sonnet 4.5": "claude-sonnet-4-5",
-    "claude opus 4.6": "claude-opus-4-6",
-    "claude opus 4.5": "claude-opus-4-5",
-    "claude haiku 4.5": "claude-haiku-4-5",
-    "gemini 2.5 pro": "gemini-2.5-pro",
-    "gemini 2.5 flash": "gemini-2.5-flash",
-    "gemini 2.5 flash lite": "gemini-2.5-flash-lite",
-    "gemini 2.0 flash": "gemini-2.0-flash",
+SUPPORTED_MODELS_BY_PROVIDER: dict[str, list[str]] = {
+    "openai": [
+        "gpt-5.2",
+        "gpt-5.2-pro",
+        "gpt-5.3-codex",
+        "gpt-5-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "o3",
+        "o4-mini",
+    ],
+    "anthropic": [
+        "claude-opus-4-6",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+        "claude-sonnet-4-5",
+        "claude-opus-4-5",
+    ],
+    "gemini": [
+        "gemini-3.1-pro-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.0-flash",
+    ],
+    "github-copilot": [
+        "claude-haiku-4.5",
+        "claude-opus-4.5",
+        "claude-opus-4.6",
+        "claude-sonnet-4",
+        "claude-sonnet-4.5",
+        "claude-sonnet-4.6",
+        "gemini-2.5-pro",
+        "gemini-3-flash-preview",
+        "gemini-3-pro-preview",
+        "gemini-3.1-pro-preview",
+        "gpt-4.1",
+        "gpt-4o",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5.1",
+        "gpt-5.1-codex",
+        "gpt-5.1-codex-max",
+        "gpt-5.1-codex-mini",
+        "gpt-5.2",
+        "gpt-5.2-codex",
+        "gpt-5.3-codex",
+        "gpt-5.4",
+        "grok-code-fast-1",
+    ],
 }
-
-FAMILY_FALLBACK: dict[str, str] = {
-    "gpt-": "gpt-4.1",
-    "o": "o4-mini",
-    "claude": "claude-sonnet-4-6",
-    "gemini": "gemini-2.5-flash",
-}
-
-# Precomputed once at module load: PRICING keys sorted by length descending,
-# used by _resolve_model() for prefix/substring matching.
-_PRICING_KEYS_BY_LENGTH: list[str] = sorted(PRICING.keys(), key=len, reverse=True)
-
-
-def _normalize_model(model: str) -> str:
-    return model.strip().lower().replace("_", "-")
 
 
 def _resolve_model(model: str) -> str | None:
-    # Currently we are matching models with the lists defined above, so new models will not 
+    # Currently we are matching models with the lists defined above, so new models will not
     # update automatically. This is done to ensure pricing is consistent and for unknown/new
     # models we cannot guarantee that without manual review.
-    normalized = _normalize_model(model)
-
-    if normalized in PRICING:
-        return normalized
-
-    if normalized in MODEL_ALIASES:
-        alias = MODEL_ALIASES[normalized]
-        if alias in PRICING:
-            return alias
-
-    for key in _PRICING_KEYS_BY_LENGTH:
-        if normalized == key or normalized.startswith(f"{key}-"):
-            return key
-
-    for prefix, fallback in FAMILY_FALLBACK.items():
-        if normalized.startswith(prefix):
-            return fallback
-
+    if model in PRICING:
+        return model
     return None
 
 
@@ -131,5 +155,5 @@ def calculate_output_exchange(
     )
 
 
-def is_known_model(model: str) -> bool:
-    return _resolve_model(model) is not None
+def get_supported_provider_models(provider: str) -> list[str]:
+    return list(SUPPORTED_MODELS_BY_PROVIDER.get(provider, []))

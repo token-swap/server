@@ -10,7 +10,7 @@ from server.models import (
     error_message,
     usage_update_message,
 )
-from server.pricing import is_known_model
+from server.pricing import SUPPORTED_MODELS_BY_PROVIDER, get_supported_provider_models
 
 matcher = Matcher()
 
@@ -20,6 +20,23 @@ _peer_map: dict[str, web.WebSocketResponse] = {}
 
 async def health_handler(request: web.Request) -> web.Response:
     return web.json_response({"status": "ok"})
+
+
+async def provider_models_handler(request: web.Request) -> web.Response:
+    provider = request.query.get("provider", "")
+    if provider:
+        if provider not in SUPPORTED_MODELS_BY_PROVIDER:
+            return web.json_response(
+                {"error": f"Unknown provider: {provider}"},
+                status=404,
+            )
+        return web.json_response(
+            {
+                "provider": provider,
+                "models": get_supported_provider_models(provider),
+            }
+        )
+    return web.json_response({"providers": SUPPORTED_MODELS_BY_PROVIDER})
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
@@ -44,15 +61,37 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                             input_tokens_offered > 0 or output_tokens_offered > 0
                         )
 
-                        if not is_known_model(data.get("model", "")):
+                        provider = str(data.get("provider", ""))
+                        model = str(data.get("model", ""))
+                        want_provider = str(data.get("want_provider", ""))
+                        want_model = str(data.get("want_model", ""))
+
+                        provider_models = set(get_supported_provider_models(provider))
+                        want_provider_models = set(
+                            get_supported_provider_models(want_provider)
+                        )
+
+                        if not provider_models:
                             await ws.send_json(
-                                error_message(f"Unknown model: {data.get('model')}")
+                                error_message(f"Unknown provider: {provider}")
                             )
                             continue
-                        if not is_known_model(data.get("want_model", "")):
+                        if not want_provider_models:
+                            await ws.send_json(
+                                error_message(f"Unknown provider: {want_provider}")
+                            )
+                            continue
+                        if model not in provider_models:
                             await ws.send_json(
                                 error_message(
-                                    f"Unknown model: {data.get('want_model')}"
+                                    f"Unsupported model for {provider}: {model}"
+                                )
+                            )
+                            continue
+                        if want_model not in want_provider_models:
+                            await ws.send_json(
+                                error_message(
+                                    f"Unsupported model for {want_provider}: {want_model}"
                                 )
                             )
                             continue
@@ -148,6 +187,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 def create_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/health", health_handler)
+    app.router.add_get("/providers/models", provider_models_handler)
     app.router.add_get("/ws", ws_handler)
     return app
 

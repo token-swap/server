@@ -23,6 +23,8 @@ The server matches clients offering and requesting specific model access. It cal
 pip install -e .
 ```
 
+Test: `python -m pytest -q`
+
 ## Running the Server
 
 Start the server using the entry point:

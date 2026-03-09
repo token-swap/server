@@ -42,6 +42,7 @@ WebSocket-based LLM token exchange server. Users offer tokens from one AI provid
 - **asyncio.Lock** for concurrency safety in `Matcher`
 - **Type hints** on all function signatures
 - **Env vars** for config: `HOST` (default `0.0.0.0`), `PORT` (default `8080`)
+- **HARD RULE**: After any code or configuration change, run tests to verify (`python -m pytest -q`) before considering the task complete
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
