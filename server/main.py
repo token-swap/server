@@ -1,6 +1,7 @@
 import json
 import os
 import uuid
+from contextlib import suppress
 from aiohttp import web
 from server.matcher import Matcher
 from server.models import (
@@ -9,6 +10,7 @@ from server.models import (
     ack_message,
     error_message,
     usage_update_message,
+    unpaired_message,
 )
 from server.pricing import SUPPORTED_MODELS_BY_PROVIDER, get_supported_provider_models
 
@@ -16,6 +18,7 @@ matcher = Matcher()
 
 # Maps offer_id -> peer's WebSocket so usage_report can be relayed
 _peer_map: dict[str, web.WebSocketResponse] = {}
+_offer_owner_map: dict[str, web.WebSocketResponse] = {}
 
 
 async def health_handler(request: web.Request) -> web.Response:
@@ -112,6 +115,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 
                         offer_id = uuid.uuid4().hex[:8]
                         offer = offer_from_message(data, ws, offer_id)
+                        _offer_owner_map[offer_id] = ws
                         await ws.send_json(ack_message(offer_id))
 
                         pairing = await matcher.add_offer(offer)
@@ -177,9 +181,30 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
                 break
     finally:
         await matcher.remove_by_ws(ws)
-        stale = [oid for oid, pw in _peer_map.items() if pw is ws]
-        for oid in stale:
+        disconnected_offer_ids = [
+            oid for oid, owner_ws in _offer_owner_map.items() if owner_ws is ws
+        ]
+
+        peer_sockets = {
+            _peer_map[oid]
+            for oid in disconnected_offer_ids
+            if oid in _peer_map and not _peer_map[oid].closed
+        }
+
+        for peer_ws in peer_sockets:
+            with suppress(ConnectionResetError, RuntimeError):
+                await peer_ws.send_json(unpaired_message())
+
+        stale_peer_map_ids = {
+            oid
+            for oid, peer_ws in _peer_map.items()
+            if oid in disconnected_offer_ids or peer_ws is ws
+        }
+        for oid in stale_peer_map_ids:
             del _peer_map[oid]
+
+        for oid in disconnected_offer_ids:
+            del _offer_owner_map[oid]
 
     return ws
 

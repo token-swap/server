@@ -107,3 +107,7 @@ def usage_update_message(
     if output_tokens:
         msg["output_tokens"] = output_tokens
     return msg
+
+
+def unpaired_message() -> dict[str, str]:
+    return {"type": "unpaired"}
