@@ -12,7 +12,14 @@ from server.models import (
     usage_report_message,
     unpaired_message,
 )
-from server.pricing import SUPPORTED_MODELS_BY_PROVIDER, get_supported_provider_models
+from server.pricing import (
+    SUPPORTED_MODELS_BY_PROVIDER,
+    calculate_exchange,
+    calculate_input_exchange,
+    calculate_output_exchange,
+    get_supported_provider_models,
+)
+from server.utils import parse_positive_int
 
 matcher = Matcher()
 
@@ -40,6 +47,105 @@ async def provider_models_handler(request: web.Request) -> web.Response:
             }
         )
     return web.json_response({"providers": SUPPORTED_MODELS_BY_PROVIDER})
+
+
+async def exchange_estimate_handler(request: web.Request) -> web.Response:
+    offered_provider = request.query.get("offered_provider", "")
+    offered_model = request.query.get("offered_model", "")
+    wanted_provider = request.query.get("wanted_provider", "")
+    wanted_model = request.query.get("wanted_model", "")
+
+    if (
+        not offered_provider
+        or not offered_model
+        or not wanted_provider
+        or not wanted_model
+    ):
+        return web.json_response(
+            {
+                "error": (
+                    "offered_provider, offered_model, wanted_provider, and wanted_model are required"
+                )
+            },
+            status=400,
+        )
+
+    offered_provider_models = set(get_supported_provider_models(offered_provider))
+    wanted_provider_models = set(get_supported_provider_models(wanted_provider))
+
+    if not offered_provider_models:
+        return web.json_response(
+            {"error": f"Unknown offered provider: {offered_provider}"},
+            status=404,
+        )
+    if not wanted_provider_models:
+        return web.json_response(
+            {"error": f"Unknown wanted provider: {wanted_provider}"},
+            status=404,
+        )
+    if offered_model not in offered_provider_models:
+        return web.json_response(
+            {"error": f"Unsupported model for {offered_provider}: {offered_model}"},
+            status=400,
+        )
+    if wanted_model not in wanted_provider_models:
+        return web.json_response(
+            {"error": f"Unsupported model for {wanted_provider}: {wanted_model}"},
+            status=400,
+        )
+
+    offered_tokens = parse_positive_int(request.query.get("offered_tokens"))
+    offered_input_tokens = parse_positive_int(request.query.get("offered_input_tokens"))
+    offered_output_tokens = parse_positive_int(
+        request.query.get("offered_output_tokens")
+    )
+
+    if offered_input_tokens is not None and offered_output_tokens is not None:
+        input_received = calculate_input_exchange(
+            offered_model,
+            offered_input_tokens,
+            wanted_model,
+        )
+        output_received = calculate_output_exchange(
+            offered_model,
+            offered_output_tokens,
+            wanted_model,
+        )
+        estimated_received_tokens = input_received + output_received
+        offered_total = offered_input_tokens + offered_output_tokens
+        rate = estimated_received_tokens / offered_total if offered_total > 0 else 0.0
+        return web.json_response(
+            {
+                "estimated_received_tokens": estimated_received_tokens,
+                "estimated_input_received_tokens": input_received,
+                "estimated_output_received_tokens": output_received,
+                "rate": rate,
+                "mode": "advanced",
+            }
+        )
+
+    if offered_tokens is None:
+        return web.json_response(
+            {
+                "error": (
+                    "Either offered_tokens or both offered_input_tokens and offered_output_tokens must be positive integers"
+                )
+            },
+            status=400,
+        )
+
+    estimated_received_tokens = calculate_exchange(
+        offered_model,
+        offered_tokens,
+        wanted_model,
+    )
+    return web.json_response(
+        {
+            "estimated_received_tokens": estimated_received_tokens,
+            "rate": estimated_received_tokens / offered_tokens,
+            "mode": "simple",
+        }
+    )
 
 
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
@@ -213,6 +319,7 @@ def create_app() -> web.Application:
     app = web.Application()
     app.router.add_get("/health", health_handler)
     app.router.add_get("/providers/models", provider_models_handler)
+    app.router.add_get("/exchange/estimate", exchange_estimate_handler)
     app.router.add_get("/ws", ws_handler)
     return app
 

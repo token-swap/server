@@ -18,6 +18,7 @@ WebSocket-based LLM token exchange server. Users offer tokens from one AI provid
 └── server/               # Single Python package
     ├── __init__.py        # Empty package marker
     ├── main.py            # aiohttp app, WS handler, routes, entrypoint
+    ├── utils.py           # Shared parsing and helper utilities
     ├── matcher.py         # In-memory offer matching engine
     ├── models.py          # Offer/Pairing dataclasses, message builders
     └── pricing.py         # Model pricing table, exchange rate calculator
@@ -42,6 +43,7 @@ WebSocket-based LLM token exchange server. Users offer tokens from one AI provid
 - **asyncio.Lock** for concurrency safety in `Matcher`
 - **Type hints** on all function signatures
 - **Env vars** for config: `HOST` (default `0.0.0.0`), `PORT` (default `8080`)
+- **`main.py` boundary rule**: keep `server/main.py` for entrypoints and route handlers only (`create_app`, `main`, HTTP/WS handlers). Move reusable/non-endpoint helper functions to dedicated modules (e.g., `server/utils.py`).
 - **HARD RULE**: After any code or configuration change, run tests to verify (`python -m pytest -q`) before considering the task complete
 
 ## ANTI-PATTERNS (THIS PROJECT)
